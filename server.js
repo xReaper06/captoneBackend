@@ -14,7 +14,7 @@ app.use(bodyParser.json());
 app.use(cors());
 
 const corsOptions = {
-    origin: 'http://localhost:8080', // Replace with your client app's URL
+    origin: 'http://192.168.0.108:8080', // Replace with your client app's URL
     methods: 'GET,POST,PUT,DELETE',
     allowedHeaders: 'Content-Type,Authorization',
 };

@@ -1424,6 +1424,279 @@ const enableUser = async (req, res) => {
     }
   }
 };
+const getAllViolationsbyYear = async(req,res)=>{
+  let conn;
+  try {
+    const {year} = req.body;
+    console.log(year)
+    conn = await db.getConnection();
+    const [data] = await conn.query('SELECT * FROM violators WHERE YEAR(date_and_time)=?',[year])
+    console.log(data)
+    if(!data){
+      return res.status(404).json({
+        msg:'Not Found'
+      })
+    }else{
+      return res.status(200).json({
+        dateViolators:data
+      })
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally{
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const paidThisViolation = async(req,res)=>{
+  let conn;
+  try {
+    const {violations_id} = req.body;
+    conn = await db.getConnection();
+    const data = await conn.query('UPDATE violators SET is_paid = 1 WHERE id = ?',[violations_id])
+    if(data){
+      return res.status(200).json({
+        msg:'Violation Paid'
+      })
+    }else{
+      return res.status(404).json({
+        msg:'id not found'
+      })
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally{
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const adminNormalCitation = async(req,res)=>{
+  let conn;
+  const {
+    ticket_no,
+    license_no,
+    unit,
+    specific_violations,
+    fines,
+    place_of_violation,
+    apprehending_officer,
+    name_of_driver,
+  } = req.body;
+  console.log(req.body)
+  try {
+    conn = await db.getConnection();
+    const check = await conn.query(
+      `SELECT ticket_no FROM violators WHERE ticket_no = ${ticket_no}`
+    );
+    if (check[0] && check[0].length > 0) {
+      return res.status(400).json({
+        msg: "Ticket Number is already used",
+      });
+    } else {
+      const query1 =
+        'INSERT INTO violators(ticket_no,license_no,unit,place_of_violation,date_and_time,apprehending_officer,name_of_driver,status)VALUES(?,?,?,?,now(),?,?,"normal")';
+      const query2 =
+        'INSERT INTO specific_violations(violations_id,name,fine,status)VALUES(?,?,?,"notpaid")';
+      
+      const result1 = await conn.query(query1, [
+        ticket_no,
+        license_no,
+        unit,
+        place_of_violation,
+        apprehending_officer,
+        name_of_driver,
+      ]);
+      let result2;
+      if (Array.isArray(specific_violations)) {
+        for (let i = 0; i < specific_violations.length && fines.length; i++) {
+          const data = specific_violations[i];
+          const fine = fines[i];
+          result2 = await conn.query(query2, [result1[0].insertId, data, fine]);
+        }
+      } else {
+        result2 = await conn.query(query2, [
+          result1[0].insertId,
+          specific_violations,
+          fines,
+        ]);
+      }
+      if (
+        result1[0].affectedRows > 0 &&
+        result2[0].affectedRows > 0 
+      ) {
+        const [violationsData] = await conn.query(
+          "SELECT * FROM specific_violations WHERE violations_id = ?",
+          [result1[0].insertId]
+        );
+
+        const currentTimestamp = Date.now();
+
+        // Create a new Date object using the timestamp
+        const currentDate = new Date(currentTimestamp);
+
+        // Use Date methods to get individual components (year, month, day, hours, minutes, seconds)
+        const year = currentDate.getFullYear();
+        const month = (currentDate.getMonth() + 1).toString().padStart(2, "0"); // Adding 1 because months are zero-based
+        const day = currentDate.getDate().toString().padStart(2, "0");
+        const hours = currentDate.getHours().toString().padStart(2, "0");
+        const minutes = currentDate.getMinutes().toString().padStart(2, "0");
+        const seconds = currentDate.getSeconds().toString().padStart(2, "0");
+
+        // Create a formatted date string
+        const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        const violations_details = {
+          id: result1[0].insertId,
+          ticket_no: ticket_no,
+          license_no: license_no,
+          unit: unit,
+          place_of_violation: place_of_violation,
+          date_and_time: formattedDate,
+          apprehending_officer: apprehending_officer,
+          name_of_driver: name_of_driver,
+          status: "notpaid",
+          specific_violations: violationsData,
+        };
+        violationBackup(
+          result1[0].insertId,
+          JSON.stringify(violations_details)
+        );
+        return res.status(201).json({
+          msg: "Inserted Successfully",
+        });
+      } else {
+        return res.status(404).json({
+          msg: "Error Inserted",
+        });
+      }
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const adminImpoundCitation = async(req,res)=>{
+  let conn;
+  const {
+    ticket_no,
+    license_no,
+    unit,
+    specific_violations,
+    fines,
+    place_of_violation,
+    apprehending_officer,
+    name_of_driver,
+  } = req.body;
+  try {
+    conn = await db.getConnection();
+    const check = await conn.query(
+      `SELECT ticket_no FROM violators WHERE ticket_no = ${ticket_no}`
+    );
+    if (check[0] && check[0].length > 0) {
+      return res.status(400).json({
+        msg: "Ticket Number is already used",
+      });
+    } else {
+      const query1 =
+        'INSERT INTO violators(ticket_no,unit,place_of_violation,date_and_time,apprehending_officer,name_of_driver,status)VALUES(?,?,?,now(),?,?,"impound")';
+      const query2 =
+        'INSERT INTO specific_violations(violations_id,name,fine,status)VALUES(?,?,?,"notpaid")';
+      
+      const result1 = await conn.query(query1, [
+        ticket_no,
+        license_no,
+        unit,
+        place_of_violation,
+        apprehending_officer,
+        name_of_driver,
+      ]);
+      let result2;
+      if (Array.isArray(specific_violations)) {
+        for (let i = 0; i < specific_violations.length && fines.length; i++) {
+          const data = specific_violations[i];
+          const fine = fines[i];
+          result2 = await conn.query(query2, [result1[0].insertId, data, fine]);
+        }
+      } else {
+        result2 = await conn.query(query2, [
+          result1[0].insertId,
+          specific_violations,
+          fines,
+        ]);
+      }
+      if (
+        result1[0].affectedRows > 0 &&
+        result2[0].affectedRows > 0 
+      ) {
+        const [violationsData] = await conn.query(
+          "SELECT * FROM specific_violations WHERE violations_id = ?",
+          [result1[0].insertId]
+        );
+
+        const currentTimestamp = Date.now();
+
+        // Create a new Date object using the timestamp
+        const currentDate = new Date(currentTimestamp);
+
+        // Use Date methods to get individual components (year, month, day, hours, minutes, seconds)
+        const year = currentDate.getFullYear();
+        const month = (currentDate.getMonth() + 1).toString().padStart(2, "0"); // Adding 1 because months are zero-based
+        const day = currentDate.getDate().toString().padStart(2, "0");
+        const hours = currentDate.getHours().toString().padStart(2, "0");
+        const minutes = currentDate.getMinutes().toString().padStart(2, "0");
+        const seconds = currentDate.getSeconds().toString().padStart(2, "0");
+
+        // Create a formatted date string
+        const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        const violations_details = {
+          id: result1[0].insertId,
+          ticket_no: ticket_no,
+          license_no: license_no,
+          unit: unit,
+          place_of_violation: place_of_violation,
+          date_and_time: formattedDate,
+          apprehending_officer: apprehending_officer,
+          name_of_driver: name_of_driver,
+          status: "notpaid",
+          specific_violations: violationsData,
+        };
+        violationBackup(
+          result1[0].insertId,
+          JSON.stringify(violations_details)
+        );
+        return res.status(201).json({
+          msg: "Inserted Successfully",
+        });
+      } else {
+        return res.status(404).json({
+          msg: "Error Inserted",
+        });
+      }
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
 
 module.exports = {
   verifyLicense,
@@ -1457,4 +1730,8 @@ module.exports = {
   enableUser,
   AllViolationsList,
   updateLicense,
+  getAllViolationsbyYear,
+  paidThisViolation,
+  adminImpoundCitation,
+  adminNormalCitation
 };

@@ -158,7 +158,7 @@ const userRegistration = async (req, res) => {
         [newUserResult[0].insertId, verificationCode]
       );
 
-      const verificationLink = `http://localhost:8080/verifyEmail/${verificationToken}`;
+      const verificationLink = `http://192.168.0.108:8080/verifyEmail/${verificationToken}`;
 
       const mailOptions = {
         from: process.env.MAIL_USER,
@@ -200,7 +200,8 @@ const userRegistration = async (req, res) => {
       };
       userBackup(newUserResult[0].insertId, JSON.stringify(user_details));
       return res.status(200).json({
-        msg: "The user has been registered with us. Please verify your account.",
+        msg: "The user has been registered with us.",
+        Token: verificationToken,
       });
     }
   } catch (error) {
@@ -425,7 +426,7 @@ const forgot_password = async (req, res) => {
     if (result1[0][0]) {
       const verificationToken = generateToken(result1[0][0].id);
 
-      const verificationLink = `http://localhost:8080/change-forgot-password/${verificationToken}`;
+      const verificationLink = `http://192.168.0.108:8080/main/changePass/${verificationToken}`;
 
       const mailOptions = {
         from: process.env.MAIL_USER,
@@ -581,7 +582,7 @@ const enforcerRegistration = async (req, res) => {
         [newUserResult[0].insertId, verificationCode]
       );
 
-      const verificationLink = `http://localhost:8080/verifyEmail/${verificationToken}`;
+      const verificationLink = `http://192.168.0.108:8080/main/verifyAccount/${verificationToken}`;
 
       const mailOptions = {
         from: process.env.MAIL_USER,
@@ -616,7 +617,7 @@ const enforcerRegistration = async (req, res) => {
         id: newUserResult[0].insertId,
         nickname: req.body.nickname,
         email: req.body.email,
-        password: req.body.password,
+        password: hashedPassword,
         createdAt: formattedDate,
         flag: 1,
         profile_pic: "default.png",
@@ -624,6 +625,7 @@ const enforcerRegistration = async (req, res) => {
       userBackup(newUserResult[0].insertId, JSON.stringify(user_details));
       return res.status(200).json({
         msg: "The Enforcer has been registered with us. Please verify your account.",
+        Token: verificationToken,
       });
     }
   } catch (error) {
@@ -656,7 +658,7 @@ const sendRegistrationForm = async (req, res) => {
       { expiresIn: "1h" } // Set the expiration time (e.g., 1 hour)
     );
 
-    const verificationLink = `http://localhost:8080/enforcer-registration/${token}`;
+    const verificationLink = `http://192.168.0.108:8080/main/enforcerRegistration/${token}`;
 
     const mailOptions = {
       from: process.env.MAIL_USER,
@@ -674,6 +676,7 @@ const sendRegistrationForm = async (req, res) => {
     });
     return res.status(200).json({
       msg: `The Link has been Sent to this Email ${req.body.email}`,
+
     });
   } catch (error) {
     console.error(error);
@@ -688,42 +691,54 @@ const sendRegistrationForm = async (req, res) => {
 };
 const sendEmailtoVerify = async (req, res) => {
   let conn;
-  const { id, email } = req.body;
   try {
     conn = await db.getConnection();
-    const verificationToken = generateToken(id);
-    let verificationCode = generateRandomVerificationCode();
-    const [result] = await conn.query(
-      "SELECT * FROM verification_code WHERE verification_code = ?",
-      [verificationCode]
-    );
-    if (result) {
-      verificationCode = generateRandomVerificationCode();
+    const authHeaders = req.headers['authorization']; // Use lowercase 'authorization'
+  const token = authHeaders && authHeaders.split(' ')[1]
+
+  if(token != null){
+   const decoded =  jwt.verify(token, process.env.ACCESS_TOKEN)
+   const verificationToken = generateToken(decoded.id)
+  let verificationCode = generateRandomVerificationCode();
+  const [result] = await conn.query(
+    "SELECT * FROM verification_code WHERE verification_code = ?",
+    [verificationCode]
+  );
+  if (result) {
+    verificationCode = generateRandomVerificationCode();
+  }
+  const [user] = await conn.query('SELECT * FROM users WHERE id = ?',[
+    decoded.id
+  ])
+  await conn.query(
+    "INSERT INTO verification_code(user_id,verification_code)VALUES(?,?)",
+    [decoded.id, verificationCode]
+  );
+
+  const verificationLink = `http://192.168.0.108:8080/main/verificationPage/${verificationToken}`;
+
+  const mailOptions = {
+    from: process.env.MAIL_USER,
+    to: user[0].email,
+    subject: "Account Verification",
+    text: `To verify your account This is your verification code ${verificationCode}, click on the following link: ${verificationLink}`,
+  };
+
+  transport.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error("Error sending email:", error);
+    } else {
+      console.log("Email sent:", info.response);
     }
-    await conn.query(
-      "INSERT INTO verification_code(user_id,verification_code)VALUES(?,?)",
-      [id, verificationCode]
-    );
-
-    const verificationLink = `http://localhost:8080/verifyEmail/${verificationToken}`;
-
-    const mailOptions = {
-      from: process.env.MAIL_USER,
-      to: email,
-      subject: "Account Verification",
-      text: `To verify your account This is your verification code ${verificationCode}, click on the following link: ${verificationLink}`,
-    };
-
-    transport.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error("Error sending email:", error);
-      } else {
-        console.log("Email sent:", info.response);
-      }
-    });
-    return res.status(200).json({
-      msg: "The check your Email. Please verify your account.",
-    });
+  });
+  return res.status(200).json({
+    msg: "The check your Email. Please verify your account.",
+  });
+  }else{    
+    return res.status(404).json({
+      msg:'Token is not Available'
+    })
+  }
   } catch (error) {
     console.error(error);
     return res.status(500).json({

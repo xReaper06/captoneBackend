@@ -4,7 +4,7 @@ const multer = require('multer')
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-      cb(null, '../server/public/images'); // Adjust the destination folder as needed
+      cb(null, 'public/images'); // Adjust the destination folder as needed
     },
     filename: function (req, file, cb) {
       cb(null,file.originalname);
@@ -43,6 +43,6 @@ authRouter.post('/forgot-password',emailValidation,authController.forgot_passwor
 authRouter.post('/change-forgot-password',changePasswordValidation, authController.change_forgot_password);
 authRouter.post('/send-registration-form',emailValidation,authController.sendRegistrationForm)
 authRouter.post('/enforcer-registration',signUpValidation,authController.enforcerRegistration)
-authRouter.post('/sendEmailtoVerify',emailVerify,authController.sendEmailtoVerify);
+authRouter.post('/sendEmailtoVerify',authController.sendEmailtoVerify);
 
 module.exports = authRouter;
