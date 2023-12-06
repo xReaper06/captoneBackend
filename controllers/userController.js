@@ -1350,7 +1350,7 @@ const disableUser = async (req, res) => {
   try {
     conn = await db.getConnection();
     const [result] = await conn.query(
-      "UPDATE users SET FLAG = 0 WHERE id = ?",
+      "UPDATE users SET flag = 0 WHERE id = ?",
       [id]
     );
     if (result) {
@@ -1390,7 +1390,7 @@ const enableUser = async (req, res) => {
   try {
     conn = await db.getConnection();
     const [result] = await conn.query(
-      "UPDATE users SET FLAG = 1 WHERE id = ?",
+      "UPDATE users SET flag = 1 WHERE id = ?",
       [id]
     );
     if (result) {

@@ -158,7 +158,7 @@ const userRegistration = async (req, res) => {
         [newUserResult[0].insertId, verificationCode]
       );
 
-      const verificationLink = `http://192.168.0.108:8080/verifyEmail/${verificationToken}`;
+      const verificationLink = `${process.env.ORIGIN_HOST}/main/verifyAccount/${verificationToken}`;
 
       const mailOptions = {
         from: process.env.MAIL_USER,
@@ -426,7 +426,7 @@ const forgot_password = async (req, res) => {
     if (result1[0][0]) {
       const verificationToken = generateToken(result1[0][0].id);
 
-      const verificationLink = `http://192.168.0.108:8080/main/changePass/${verificationToken}`;
+      const verificationLink = `${process.env.ORIGIN_HOST}/main/changePass/${verificationToken}`;
 
       const mailOptions = {
         from: process.env.MAIL_USER,
@@ -582,7 +582,7 @@ const enforcerRegistration = async (req, res) => {
         [newUserResult[0].insertId, verificationCode]
       );
 
-      const verificationLink = `http://192.168.0.108:8080/main/verifyAccount/${verificationToken}`;
+      const verificationLink = `${process.env.ORIGIN_HOST}/main/verifyAccount/${verificationToken}`;
 
       const mailOptions = {
         from: process.env.MAIL_USER,
@@ -658,7 +658,7 @@ const sendRegistrationForm = async (req, res) => {
       { expiresIn: "1h" } // Set the expiration time (e.g., 1 hour)
     );
 
-    const verificationLink = `http://192.168.0.108:8080/main/enforcerRegistration/${token}`;
+    const verificationLink = `${process.env.ORIGIN_HOST}/main/enforcerRegistration/${token}`;
 
     const mailOptions = {
       from: process.env.MAIL_USER,
@@ -715,7 +715,7 @@ const sendEmailtoVerify = async (req, res) => {
     [decoded.id, verificationCode]
   );
 
-  const verificationLink = `http://192.168.0.108:8080/main/verificationPage/${verificationToken}`;
+  const verificationLink = `${process.env.ORIGIN_HOST}/main/verificationPage/${verificationToken}`;
 
   const mailOptions = {
     from: process.env.MAIL_USER,
