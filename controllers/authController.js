@@ -272,7 +272,7 @@ const login = async (req, res) => {
 
     // Store the refresh token in your database
     await conn.query(
-      `INSERT INTO tokens (user_id, refresh_token, flag) VALUES (?, ?, '1');`,
+      `INSERT INTO tokens (user_id, refresh_token, flag) VALUES (?, ?, 1);`,
       [user[0].id, refreshToken]
     );
 
@@ -321,9 +321,10 @@ const Token = async (req, res) => {
 
   try {
     conn = await db.getConnection();
-    const refreshTokenResult = await conn.query(
-      `SELECT * FROM tokens WHERE refresh_token = ?;`,
-      [req.body.token]
+    const {token} = req.body;
+    const [refreshTokenResult] = await conn.query(
+      'SELECT * FROM tokens WHERE refresh_token = ?',
+      [token]
     );
 
     if (!refreshTokenResult || refreshTokenResult.length === 0) {
@@ -332,10 +333,10 @@ const Token = async (req, res) => {
       });
     }
 
-    const refreshToken = refreshTokenResult[0][0].refresh_token;
+    const refreshToken = refreshTokenResult[0].refresh_token;
     // Verify the refresh token
     const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN);
-    const [user] = await conn.query(`SELECT * FROM users WHERE id = ?;`, [
+    const [user] = await conn.query('SELECT * FROM users WHERE id = ?', [
       decoded.id,
     ]);
     const [profile_pic] = await conn.query(

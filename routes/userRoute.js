@@ -100,11 +100,23 @@ router.post('/impoundCitation',upload.fields([
 router.get('/getAllViolators',TokenValidity.verifyToken,userController.getAllViolators);
 router.get('/getAllViolatorsImpound',TokenValidity.verifyToken,userController.getAllViolatorsImpound);
 router.get('/getAllViolatorsNormal',TokenValidity.verifyToken,userController.getAllViolatorsNormal);
+router.get('/getAllPaidViolatorsNormal',TokenValidity.verifyToken,userController.getAllPaidViolatorsNormal);
 router.post('/getUserViolations',TokenValidity.verifyToken,userController.getUserViolation);
 router.post('/getAllViolationsByYear',TokenValidity.verifyToken,userController.getAllViolationsbyYear);
 router.post('/paid-this',TokenValidity.verifyToken,userController.paidThisViolation);
 router.post('/adminNormalCitation',TokenValidity.verifyToken,userController.adminNormalCitation);
 router.post('/adminImpoundCitation',TokenValidity.verifyToken,userController.adminImpoundCitation);
+router.post('/createAnnouncement',TokenValidity.verifyToken,userController.createAnnouncement);
+router.get('/getAnnouncement',TokenValidity.verifyToken,userController.getAnnouncement);
+router.post('/enforcerRecentAdded',TokenValidity.verifyToken,userController.enforcerRecentAdded);
+router.post('/updateAnnouncement',TokenValidity.verifyToken,userController.updateAnnouncement);
+router.post('/removeAnnouncement',TokenValidity.verifyToken,userController.removeAnnouncement);
+router.post('/enforcerInfo',TokenValidity.verifyToken,userController.enforcerInfo);
+router.post('/getEnforcerInfo',TokenValidity.verifyToken,userController.getEnforcerInfo);
+router.post('/updateRecent',TokenValidity.verifyToken,userController.updateRecent);
+router.get('/getSpecificViolations',TokenValidity.verifyToken,userController.getSpecificViolation);
+
+
 
 
 

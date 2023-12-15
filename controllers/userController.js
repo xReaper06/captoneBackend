@@ -731,7 +731,7 @@ const removeEnforcer = async (req, res) => {
     conn = await db.getConnection();
 
     const deleteQuery =
-      "UPDATE users SET status = deleted, flag = 2 WHERE id = ?";
+      "UPDATE users SET status = 'deleted', flag = 2 WHERE id = ?";
     const [result] = await conn.query(deleteQuery, [req.body.id]);
 
     if (result.affectedRows === 0) {
@@ -843,6 +843,25 @@ const getAllViolatorsNormal = async (req, res) => {
   try {
     conn = await db.getConnection();
     const dbQuery = `SELECT * FROM violators WHERE status = 'normal'`;
+    const [result] = await conn.query(dbQuery);
+    if (result) {
+      res.status(200).json({ violators: result });
+    } else {
+      res.status(401).json({ msg: "Error" });
+    }
+  } catch (error) {
+    console.log(error);
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+};
+const getAllPaidViolatorsNormal = async (req, res) => {
+  let conn;
+  try {
+    conn = await db.getConnection();
+    const dbQuery = `SELECT * FROM violators WHERE status = 'normal' AND is_paid = 1`;
     const [result] = await conn.query(dbQuery);
     if (result) {
       res.status(200).json({ violators: result });
@@ -1455,17 +1474,31 @@ const getAllViolationsbyYear = async(req,res)=>{
 const paidThisViolation = async(req,res)=>{
   let conn;
   try {
-    const {violations_id} = req.body;
+    const {violations_id,or_no} = req.body;
     conn = await db.getConnection();
-    const data = await conn.query('UPDATE violators SET is_paid = 1 WHERE id = ?',[violations_id])
-    if(data){
-      return res.status(200).json({
-        msg:'Violation Paid'
-      })
+    const [status] = await conn.query('SELECT * FROM violators WHERE id = ?',[violations_id]);
+    if(status[0].status == 'normal'){
+      const data = await conn.query('UPDATE violators SET is_paid = 1,or_no = ?,date_paid = now() WHERE id = ?',[or_no,violations_id])
+      if(data){
+        return res.status(200).json({
+          msg:'Violation Paid'
+        })
+      }else{
+        return res.status(404).json({
+          msg:'id not found'
+        })
+      }
     }else{
-      return res.status(404).json({
-        msg:'id not found'
-      })
+      const data = await conn.query('UPDATE violators SET is_paid = 1, date_release = now() WHERE id = ?',[violations_id])
+      if(data){
+        return res.status(200).json({
+          msg:'Vioaltion Paid'
+        })
+      }else{
+        return res.status(404).json({
+          msg:'id not found'
+        })
+      }
     }
   } catch (error) {
     console.error(error);
@@ -1697,6 +1730,252 @@ const adminImpoundCitation = async(req,res)=>{
     }
   }
 }
+const enforcerRecentAdded = async(req,res)=>{
+  let conn;
+  try {
+    const {apprehending_officer} = req.body;
+    conn = await db.getConnection()
+    const [result] = await conn.query('SELECT * FROM violators WHERE apprehending_officer = ? ORDER BY date_and_time DESC',[apprehending_officer])
+    if(result){
+      return res.status(200).json({
+        recentAdded:result
+      })
+    }else{
+      return res.status(404).json({
+        msg:'Data Not Found'
+      })
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const createAnnouncement = async(req,res)=>{
+  let conn;
+  try {
+    const {title,content} = req.body;
+    conn = await db.getConnection();
+    const result = await conn.query('INSERT INTO announcement(title,content,created)VALUES(?,?,now())',[title,content]);
+    if(result){
+      return res.status(201).json({
+        msg:'Announcement Created'
+      })
+    }else{
+      return res.status(400).json({
+        msg:'Error Insert'
+      })
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const updateAnnouncement = async(req,res)=>{
+  let conn;
+  try {
+    const {title,content,id} = req.body;
+    conn = await db.getConnection();
+    const result = await conn.query('UPDATE announcement SET title = ?, content = ?, updated = now() WHERE id = ?',[title,content,id]);
+    if(result){
+      return res.status(201).json({
+        msg:'Announcement Updated'
+      })
+    }else{
+      return res.status(400).json({
+        msg:'Error Update'
+      })
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const getAnnouncement = async(req,res)=>{
+  let conn;
+  try {
+    conn = await db.getConnection();
+    const [result] = await conn.query('SELECT * FROM announcement ORDER BY id DESC')
+    if(result){
+      return res.status(200).json({
+        announcement:result
+      })
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const removeAnnouncement = async(req,res)=>{
+  let conn;
+  try {
+    conn = await db.getConnection();
+    const {id} = req.body
+    const [result] = await conn.query('DELETE FROM announcement WHERE id = ?',[id])
+    if(result){
+      return res.status(200).json({
+        msg:'Announcement is Removed'
+      })
+    }else{
+      return res.status(404).json({
+        msg:'Announcement is notFound'
+      })
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const enforcerInfo = async(req,res)=>{
+  let conn;
+  try {
+    const {user_id,first_name,last_name,middle_name,birthday,sex} = req.body;
+    conn = await db.getConnection();
+    const result = await conn.query('INSERT INTO enforcers_info(user_id,first_name,last_name,middle_name,birthday,sex)VALUES(?,?,?,?,?,?)',[
+      user_id,first_name,last_name,middle_name,birthday,sex
+    ])
+    if(result){
+      return res.status(201).json({
+        msg:'Info Inserted'
+      })
+    }else{
+      return res.status(400).json({
+        msg:'Error Info'
+      })
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const getEnforcerInfo = async(req,res)=>{
+  let conn;
+  try {
+    const {user_id} = req.body;
+    conn = await db.getConnection();
+    const [result] = await conn.query('SELECT * FROM enforcers_info WHERE user_id = ?',[
+      user_id
+    ])
+    if(result){
+      return res.status(200).json({
+        info:result
+      })
+    }else{
+      return res.status(404).json({
+        msg:'Enforcer Info Not Found'
+      })
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const updateRecent = async(req,res)=>{
+  let conn;
+  try {
+    const {id,ticket_no,license_no,unit,place_of_violation,name_of_driver,status} = req.body;
+    conn = await db.getConnection();
+    if(status == 'normal'){   
+      const result = await conn.query('UPDATE violators SET ticket_no = ?,license_no = ?, unit = ?, place_of_violation = ?, name_of_driver = ? WHERE id = ?',[
+        ticket_no,license_no,unit,place_of_violation,name_of_driver,id
+      ])
+      if(result){
+        return res.status(201).json({
+          msg:'Updated Successfully'
+        })
+      }else{
+        return res.status(400).json({
+          msg:'Error Update'
+        })
+      }
+    }else{
+      const result = await conn.query('UPDATE violators SET ticket_no = ?,unit = ?, place_of_violation = ?, name_of_driver = ? WHERE id = ?',[
+        ticket_no,unit,place_of_violation,name_of_driver,id
+      ])
+      if(result){
+        return res.status(201).json({
+          msg:'Updated Successfully'
+        })
+      }else{
+        return res.status(400).json({
+          msg:'Error Update'
+        })
+      }
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+const getSpecificViolation = async(req,res)=>{
+  let conn;
+  try {
+    conn = await db.getConnection()
+    const [result] = await conn.query('SELECT * FROM specific_violations')
+    if(result){
+      return res.status(200).json({
+        specific_violations:result
+      })
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      msg: "Internal Server Error",
+    });
+  }finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+}
+
 
 module.exports = {
   verifyLicense,
@@ -1718,6 +1997,7 @@ module.exports = {
   getAllViolators,
   getAllViolatorsImpound,
   getAllViolatorsNormal,
+  getAllPaidViolatorsNormal,
   insertViolators,
   impoundCitation,
   myViolation,
@@ -1733,5 +2013,14 @@ module.exports = {
   getAllViolationsbyYear,
   paidThisViolation,
   adminImpoundCitation,
-  adminNormalCitation
+  adminNormalCitation,
+  enforcerRecentAdded,
+  createAnnouncement,
+  getAnnouncement,
+  updateAnnouncement,
+  removeAnnouncement,
+  enforcerInfo,
+  getEnforcerInfo,
+  updateRecent,
+  getSpecificViolation,
 };
