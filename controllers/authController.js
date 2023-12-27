@@ -158,7 +158,7 @@ const userRegistration = async (req, res) => {
         [newUserResult[0].insertId, verificationCode]
       );
 
-      const verificationLink = `${process.env.ORIGIN_HOST}/main/verifyAccount/${verificationToken}`;
+      const verificationLink = `${process.env.ORIGIN_HOST}/main/verificationPage/${verificationToken}`;
 
       const mailOptions = {
         from: process.env.MAIL_USER,

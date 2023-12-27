@@ -823,7 +823,26 @@ const getAllViolators = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    const dbQuery = "SELECT * from violators";
+    const dbQuery = "SELECT * from violators WHERE is_paid <=1 AND is_deleted = 0";
+    const [result] = await conn.query(dbQuery);
+    if (result) {
+      res.status(200).json({ violators: result });
+    } else {
+      res.status(401).json({ msg: "Error" });
+    }
+  } catch (error) {
+    console.log(error);
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+};
+const getAllViolatorsNotPaid = async (req, res) => {
+  let conn;
+  try {
+    conn = await db.getConnection();
+    const dbQuery = "SELECT * from violators WHERE is_paid = 0 AND is_deleted = 0";
     const [result] = await conn.query(dbQuery);
     if (result) {
       res.status(200).json({ violators: result });
@@ -842,7 +861,7 @@ const getAllViolatorsNormal = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    const dbQuery = `SELECT * FROM violators WHERE status = 'normal'`;
+    const dbQuery = `SELECT * FROM violators WHERE status = 'normal' AND is_paid <= 1 AND is_deleted = 0`;
     const [result] = await conn.query(dbQuery);
     if (result) {
       res.status(200).json({ violators: result });
@@ -861,7 +880,7 @@ const getAllPaidViolatorsNormal = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    const dbQuery = `SELECT * FROM violators WHERE status = 'normal' AND is_paid = 1`;
+    const dbQuery = `SELECT * FROM violators WHERE status = 'normal' AND is_paid = 1 AND is_deleted = 0`;
     const [result] = await conn.query(dbQuery);
     if (result) {
       res.status(200).json({ violators: result });
@@ -880,7 +899,7 @@ const getAllViolatorsImpound = async (req, res) => {
   let conn;
   try {
     conn = await db.getConnection();
-    const dbQuery = `SELECT * FROM violators WHERE status = 'impound'`;
+    const dbQuery = `SELECT * FROM violators WHERE status = 'impound' AND is_paid <= 1 AND is_deleted = 0`;
     const [result] = await conn.query(dbQuery);
     if (result) {
       res.status(200).json({ violators: result });
@@ -902,8 +921,8 @@ const getUserViolation = async (req, res) => {
   try {
     conn = await db.getConnection();
     const dbQuery1 =
-      "SELECT * FROM specific_violations WHERE violations_id = ?";
-    const dbQuery2 = "SELECT * FROM evidences WHERE violations_id = ?";
+      "SELECT * FROM specific_violations WHERE violations_id = ? AND is_deleted = 0";
+    const dbQuery2 = "SELECT * FROM evidences WHERE violations_id = ? AND is_deleted = 0";
     const [result1] = await conn.query(dbQuery1, [violations_id]);
     const [result2] = await conn.query(dbQuery2, [violations_id]);
     if (result1 && result2) {
@@ -931,6 +950,7 @@ const insertViolators = async (req, res) => {
     unit,
     specific_violations,
     fines,
+    plate_no,
     place_of_violation,
     apprehending_officer,
     name_of_driver,
@@ -947,7 +967,7 @@ const insertViolators = async (req, res) => {
       });
     } else {
       const query1 =
-        'INSERT INTO violators(ticket_no,license_no,unit,place_of_violation,date_and_time,apprehending_officer,name_of_driver,status)VALUES(?,?,?,?,now(),?,?,"normal")';
+        'INSERT INTO violators(ticket_no,license_no,unit,plate_no,place_of_violation,date_and_time,apprehending_officer,name_of_driver,status)VALUES(?,?,?,?,?,now(),?,?,"normal")';
       const query2 =
         'INSERT INTO specific_violations(violations_id,name,fine,status)VALUES(?,?,?,"notpaid")';
       const query3 =
@@ -956,6 +976,7 @@ const insertViolators = async (req, res) => {
         ticket_no,
         license_no,
         unit,
+        plate_no,
         place_of_violation,
         apprehending_officer,
         name_of_driver,
@@ -1062,6 +1083,7 @@ const impoundCitation = async (req, res) => {
     const {
       ticket_no,
       unit,
+      plate_no,
       place_of_violation,
       apprehending_officer,
       specific_violations,
@@ -1086,7 +1108,7 @@ const impoundCitation = async (req, res) => {
       });
     } else {
       const query1 =
-        'INSERT INTO violators(ticket_no,unit,place_of_violation,date_and_time,apprehending_officer,name_of_driver,status)VALUES(?,?,?,now(),?,?,"impound");';
+        'INSERT INTO violators(ticket_no,unit,plate_no,place_of_violation,date_and_time,apprehending_officer,name_of_driver,status)VALUES(?,?,?,?,now(),?,?,"impound");';
       const query2 =
         'INSERT INTO specific_violations(violations_id,name,fine,status)VALUES(?,?,?,"notpaid")';
       const query3 =
@@ -1094,6 +1116,7 @@ const impoundCitation = async (req, res) => {
       const result1 = await conn.query(query1, [
         ticket_no,
         unit,
+        plate_no,
         place_of_violation,
         apprehending_officer,
         name_of_driver,
@@ -1914,11 +1937,11 @@ const getEnforcerInfo = async(req,res)=>{
 const updateRecent = async(req,res)=>{
   let conn;
   try {
-    const {id,ticket_no,license_no,unit,place_of_violation,name_of_driver,status} = req.body;
+    const {id,ticket_no,license_no,unit,plate_no,place_of_violation,name_of_driver,status} = req.body;
     conn = await db.getConnection();
     if(status == 'normal'){   
-      const result = await conn.query('UPDATE violators SET ticket_no = ?,license_no = ?, unit = ?, place_of_violation = ?, name_of_driver = ? WHERE id = ?',[
-        ticket_no,license_no,unit,place_of_violation,name_of_driver,id
+      const result = await conn.query('UPDATE violators SET ticket_no = ?,license_no = ?, unit = ?, plate_no = ?, place_of_violation = ?, name_of_driver = ? WHERE id = ?',[
+        ticket_no,license_no,unit,plate_no,place_of_violation,name_of_driver,id
       ])
       if(result){
         return res.status(201).json({
@@ -1930,8 +1953,8 @@ const updateRecent = async(req,res)=>{
         })
       }
     }else{
-      const result = await conn.query('UPDATE violators SET ticket_no = ?,unit = ?, place_of_violation = ?, name_of_driver = ? WHERE id = ?',[
-        ticket_no,unit,place_of_violation,name_of_driver,id
+      const result = await conn.query('UPDATE violators SET ticket_no = ?,unit = ?,plate_no = ?, place_of_violation = ?, name_of_driver = ? WHERE id = ?',[
+        ticket_no,unit,plate_no,place_of_violation,name_of_driver,id
       ])
       if(result){
         return res.status(201).json({
@@ -1975,6 +1998,33 @@ const getSpecificViolation = async(req,res)=>{
     }
   }
 }
+const deleteThisViolation = async(req,res)=>{
+  let conn;
+  try {
+    conn = await db.getConnection()
+    const {id} = req.body;
+    const result = await conn.query(`UPDATE violators SET is_deleted = 1 WHERE id = ?`,[
+      id
+    ])
+    const result2 = await conn.query(`UPDATE specific_violations SET is_deleted = 1 WHERE violations_id = ?`,[
+      id
+    ])
+    const result3 = await conn.query(`UPDATE evidences SET is_deleted = 1 WHERE violations_id = ?`,[
+      id
+    ])
+    if(result && result2 && result3){
+      return res.status(200).json({
+        msg:'Violation DELETED'
+      })
+    }else{
+      return res.status(404).json({
+        msg:'Violation is Failed to delete'
+      })
+    }
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 
 module.exports = {
@@ -2001,12 +2051,14 @@ module.exports = {
   insertViolators,
   impoundCitation,
   myViolation,
+  deleteThisViolation,
   verifyEmail,
   changeProfilePic,
   changePassword,
   markNotificationAsRead,
   getUserViolation,
   disableUser,
+  getAllViolatorsNotPaid,
   enableUser,
   AllViolationsList,
   updateLicense,
